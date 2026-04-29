@@ -1,4 +1,6 @@
-const API_URL = 'http://127.0.0.1:8000/api/analyze';
+const API_URL = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' || window.location.protocol === 'file:') 
+    ? 'http://127.0.0.1:8000/api/analyze' 
+    : '/api/analyze';
 
 document.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.getElementById('drop-zone');
@@ -82,12 +84,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
 
+            const textData = await response.text();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to process file');
+                let errorMsg = `Server returned ${response.status} ${response.statusText}`;
+                try {
+                    const errorData = JSON.parse(textData);
+                    if (errorData && errorData.detail) {
+                        errorMsg = errorData.detail;
+                    }
+                } catch(e) {
+                    errorMsg += ` | Response: ${textData ? textData.substring(0, 100) : 'Empty body'}`;
+                }
+                throw new Error(errorMsg);
             }
 
-            const data = await response.json();
+            let data;
+            try {
+                data = JSON.parse(textData);
+            } catch (e) {
+                throw new Error(`Server returned invalid JSON (Body: ${textData ? textData.substring(0, 50) : 'Empty'})`);
+            }
+
             renderResults(data);
         } catch (error) {
             console.error('Error:', error);
